@@ -1,0 +1,28 @@
+plugins {
+    id 'war'
+}
+
+group 'com.jfisherdev'
+version 'unspecified'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly group: 'javax', name: 'javaee-api', version: '8.0'
+    testImplementation 'junit:junit:4.11'
+}
+
+task deployStandalone(dependsOn: build) {
+    doLast {
+        String systemProperty = System.getProperty("wildfly.home")
+        String envHome = System.getenv("WILDFLY_HOME") != null ? System.getenv("WILDFLY_HOME") : System.getenv("JBOSS_HOME")
+        String wildflyHome = systemProperty != null ? systemProperty : envHome
+        String deploymentsDir = wildflyHome + "/standalone/deployments"
+        copy {
+            from "$buildDir/libs"
+            into deploymentsDir
+        }
+    }
+}
