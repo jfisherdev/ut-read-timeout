@@ -10,6 +10,7 @@ public class SlowResponse {
     private String messageContent;
     private Instant requestedTime;
     private Instant completedTime;
+    private String sessionId;
 
     public SlowResponse() {
     }
@@ -38,12 +39,21 @@ public class SlowResponse {
         this.completedTime = completedTime;
     }
 
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+
     @Override
     public String toString() {
         return "SlowResponse{" +
                 "messageContent='" + messageContent + '\'' +
                 ", requestedTime=" + requestedTime +
                 ", completedTime=" + completedTime +
+                ", sessionId='" + sessionId + '\'' +
                 '}';
     }
 }

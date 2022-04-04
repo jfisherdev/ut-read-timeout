@@ -30,6 +30,8 @@ public class SlowPostService {
     @POST
     public SlowResponse generateRandomMessage(SlowRequest request) {
         final Instant requestedOn = Instant.now();
+        final String sessionId = request.getSessionId();
+        logger.info("Processing request (sessionId = " + sessionId + ")");
         final long waitTimeMillis = request.getTimeUnit().toMillis(request.getWaitTime());
         logger.info("Waiting " + waitTimeMillis + " ms before generating message.");
         try {
@@ -46,6 +48,7 @@ public class SlowPostService {
         response.setMessageContent(generatedMessage);
         response.setRequestedTime(requestedOn);
         response.setCompletedTime(completedOn);
+        response.setSessionId(sessionId);
         logger.info("Request processing complete. Response data: " + response);
         return response;
     }

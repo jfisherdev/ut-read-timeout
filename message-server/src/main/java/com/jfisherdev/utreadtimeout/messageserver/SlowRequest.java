@@ -1,5 +1,6 @@
 package com.jfisherdev.utreadtimeout.messageserver;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -10,6 +11,7 @@ public class SlowRequest {
     private int messageLength = 16;
     private long waitTime = 0;
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
+    private String sessionId = "ServerGenerated-" + UUID.randomUUID();
 
     public SlowRequest() {
     }
@@ -39,12 +41,21 @@ public class SlowRequest {
         this.timeUnit = timeUnit;
     }
 
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+
     @Override
     public String toString() {
         return "SlowRequest{" +
                 "messageLength=" + messageLength +
                 ", waitTime=" + waitTime +
                 ", timeUnit=" + timeUnit +
+                ", sessionId='" + sessionId + '\'' +
                 '}';
     }
 }

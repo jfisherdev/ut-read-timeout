@@ -13,6 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,8 +38,9 @@ public class SlowPostClientServlet extends HttpServlet {
     }
 
     void doGetAndPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        final String sessionId = UUID.randomUUID().toString();
         final String serviceUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + GENERATE_RANDOM_PATH;
-        final String requestJson = getRequestJson(request);
+        final String requestJson = getRequestJson(request, sessionId);
         final HttpClient httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(30L)).build();
         final HttpRequest slowRequest = HttpRequest.newBuilder(URI.create(serviceUrl)).
                 header("Content-Type", "application/json").
@@ -47,7 +49,7 @@ public class SlowPostClientServlet extends HttpServlet {
         final Instant requestBegin = Instant.now();
         boolean success = false;
         try {
-            logger.info("Incoming client " + request.getMethod() + " request is sending request: " + slowRequest);
+            logger.info("Incoming client " + request.getMethod() + " request (sessionId = " + sessionId + ") is sending request: " + slowRequest);
             final HttpResponse<String> slowResponse = httpClient.send(slowRequest, HttpResponse.BodyHandlers.ofString());
             final int responseStatus = slowResponse.statusCode();
             if (responseStatus == 200) {
@@ -69,7 +71,7 @@ public class SlowPostClientServlet extends HttpServlet {
         }
     }
 
-    private String getRequestJson(HttpServletRequest request) {
+    private String getRequestJson(HttpServletRequest request, String sessionId) {
         final JsonObjectBuilder jsonBuilder = Json.createObjectBuilder();
         String messageLength = request.getParameter("messageLength");
         if (messageLength == null) {
@@ -86,6 +88,7 @@ public class SlowPostClientServlet extends HttpServlet {
             waitTime = "0";
         }
         jsonBuilder.add("waitTime", waitTime);
+        jsonBuilder.add("sessionId", sessionId);
         return jsonBuilder.build().toString();
     }
 }
