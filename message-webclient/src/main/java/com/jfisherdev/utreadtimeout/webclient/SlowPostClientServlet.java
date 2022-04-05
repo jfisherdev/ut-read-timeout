@@ -21,7 +21,7 @@ import java.util.logging.Logger;
 /**
  * Servlet that acts as a client to /message-server/services/slowpost
  */
-@WebServlet(name = "SlowPostClientServlet", value = "/SlowPostClientServlet")
+@WebServlet(name = "SlowPostClientServlet", value = "/SlowPostClient/*")
 public class SlowPostClientServlet extends HttpServlet {
 
     private static final Logger logger = Logger.getLogger(SlowPostClientServlet.class.getName());
@@ -38,8 +38,9 @@ public class SlowPostClientServlet extends HttpServlet {
     }
 
     void doGetAndPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        final String sessionId = UUID.randomUUID().toString();
-        final String serviceUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + GENERATE_RANDOM_PATH;
+        final String sessionId = getSessionId(request);
+        final String serviceUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort()
+                + GENERATE_RANDOM_PATH + "/" + sessionId;
         final String requestJson = getRequestJson(request, sessionId);
         final HttpClient httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(30L)).build();
         final HttpRequest slowRequest = HttpRequest.newBuilder(URI.create(serviceUrl)).
@@ -71,24 +72,40 @@ public class SlowPostClientServlet extends HttpServlet {
         }
     }
 
+    private String getSessionId(HttpServletRequest request) {
+        final String pathInfo = request.getPathInfo();
+        if (isPopulated(pathInfo)) {
+            return pathInfo.replaceFirst("/","");
+        }
+        final String sessionIdParamValue = request.getParameter("sessionId");
+        if (isPopulated(sessionIdParamValue)) {
+            return sessionIdParamValue;
+        }
+        return UUID.randomUUID().toString();
+    }
+
     private String getRequestJson(HttpServletRequest request, String sessionId) {
         final JsonObjectBuilder jsonBuilder = Json.createObjectBuilder();
         String messageLength = request.getParameter("messageLength");
-        if (messageLength == null) {
+        if (!isPopulated(messageLength)) {
             messageLength = "16";
         }
         jsonBuilder.add("messageLength", messageLength);
         String timeUnit = request.getParameter("timeUnit");
-        if (timeUnit == null) {
+        if (!isPopulated(timeUnit)) {
             timeUnit = TimeUnit.MILLISECONDS.name();
         }
         jsonBuilder.add("timeUnit", timeUnit);
         String waitTime = request.getParameter("waitTime");
-        if (waitTime == null) {
+        if (!isPopulated(waitTime)) {
             waitTime = "0";
         }
         jsonBuilder.add("waitTime", waitTime);
         jsonBuilder.add("sessionId", sessionId);
         return jsonBuilder.build().toString();
+    }
+
+    private static boolean isPopulated(String s) {
+        return s != null && s.trim().length() > 0;
     }
 }

@@ -3,10 +3,12 @@ package com.jfisherdev.utreadtimeout.messageserver;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,8 +31,17 @@ public class SlowPostService {
     @Path("generate-random")
     @POST
     public SlowResponse generateRandomMessage(SlowRequest request) {
+        return generateRandomMessage(request, request.getSessionId());
+    }
+
+    @Path("generate-random/{sessionId}")
+    @POST
+    public SlowResponse generateRandomMessage(SlowRequest request, @PathParam("sessionId") String sessionId) {
+        final String requestBodyId = request.getSessionId();
+        if (!Objects.equals(sessionId, requestBodyId) && !requestBodyId.startsWith("ServerGenerated")) {
+            logger.warning("Request body sessionId '" + requestBodyId + "' differs from URL path parameter and will be ignored.");
+        }
         final Instant requestedOn = Instant.now();
-        final String sessionId = request.getSessionId();
         logger.info("Processing request (sessionId = " + sessionId + ")");
         final long waitTimeMillis = request.getTimeUnit().toMillis(request.getWaitTime());
         logger.info("Waiting " + waitTimeMillis + " ms before generating message.");
