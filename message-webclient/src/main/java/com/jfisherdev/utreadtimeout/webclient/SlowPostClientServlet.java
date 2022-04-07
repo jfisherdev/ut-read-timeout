@@ -73,7 +73,7 @@ public class SlowPostClientServlet extends HttpServlet {
     }
 
     private String getSessionId(HttpServletRequest request) {
-        final String pathInfo = request.getPathInfo();
+        final String pathInfo = safeTrim(request.getPathInfo()).replaceFirst("/", "");
         if (isPopulated(pathInfo)) {
             return pathInfo.replaceFirst("/","");
         }
@@ -105,7 +105,11 @@ public class SlowPostClientServlet extends HttpServlet {
         return jsonBuilder.build().toString();
     }
 
+    private static String safeTrim(String s) {
+        return s == null ? "" : s.trim();
+    }
+
     private static boolean isPopulated(String s) {
-        return s != null && s.trim().length() > 0;
+        return !safeTrim(s).isEmpty();
     }
 }
