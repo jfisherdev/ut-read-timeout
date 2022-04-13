@@ -39,20 +39,20 @@ public class SlowPostService {
     public SlowResponse generateRandomMessage(SlowRequest request, @PathParam("sessionId") String sessionId) {
         final String requestBodyId = request.getSessionId();
         if (!Objects.equals(sessionId, requestBodyId) && !requestBodyId.startsWith("ServerGenerated")) {
-            logger.warning("Request body sessionId '" + requestBodyId + "' differs from URL path parameter and will be ignored.");
+            logger.warning(sessionLogMessage(sessionId, "Request body sessionId '" + requestBodyId + "' differs from URL path parameter and will be ignored."));
         }
         final Instant requestedOn = Instant.now();
-        logger.info("Processing request (sessionId = " + sessionId + ")");
+        logger.info(sessionLogMessage(sessionId, "Processing request"));
         final long waitTimeMillis = request.getTimeUnit().toMillis(request.getWaitTime());
         logger.info("Waiting " + waitTimeMillis + " ms before generating message.");
         try {
             Thread.sleep(waitTimeMillis);
         } catch (InterruptedException e) {
-            logger.log(Level.SEVERE, "Interrupted while waiting to generate message", e);
+            logger.log(Level.SEVERE, sessionLogMessage(sessionId, "Interrupted while waiting to generate message"), e);
             throw new WebApplicationException(e);
         }
         final int messageLength = request.getMessageLength();
-        logger.info("Ready to generate random " + messageLength + " character message");
+        logger.info(sessionLogMessage(sessionId, "Ready to generate random " + messageLength + " character message"));
         final String generatedMessage = generateRandomMessage(messageLength);
         final Instant completedOn = Instant.now();
         final SlowResponse response = new SlowResponse();
@@ -60,7 +60,7 @@ public class SlowPostService {
         response.setRequestedTime(requestedOn);
         response.setCompletedTime(completedOn);
         response.setSessionId(sessionId);
-        logger.info("Request processing complete. Response data: " + response);
+        logger.info(sessionLogMessage(sessionId, "Request processing complete. Response data: " + response));
         return response;
     }
 
@@ -71,6 +71,10 @@ public class SlowPostService {
             stringBuilder.append(nextChar);
         }
         return stringBuilder.toString();
+    }
+
+    private String sessionLogMessage(String sessionId, String message) {
+        return String.format("(sessionId=%s) %s", sessionId, message);
     }
 
 }

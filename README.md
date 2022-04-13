@@ -34,6 +34,9 @@ observed this. Either the `/message-webclient/SlowPostClient` or `/message-webcl
 Log messages are placed throughout these applications to show progress, and in the case of message-server.war that even
 though the request processing can be slow it is NOT reading POST body data.
 
+**I also recommend activating logging for the `io.undertow.request` category at the TRACE level or lower to help capture 
+what is going on in Undertow when the timeout occurs and the channel is closed.** 
+
 Running the deployStandalone task will deploy the WARs to the standalone/deployments directory of a WildFly server, but 
 this application can be deployed however you see fit for testing.
 

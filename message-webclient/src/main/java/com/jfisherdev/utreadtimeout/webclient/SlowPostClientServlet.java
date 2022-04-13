@@ -50,25 +50,27 @@ public class SlowPostClientServlet extends HttpServlet {
         final Instant requestBegin = Instant.now();
         boolean success = false;
         try {
-            logger.info("Incoming client " + request.getMethod() + " request (sessionId = " + sessionId + ") is sending request: " + slowRequest);
+            logger.info(sessionLogMessage(sessionId, "Incoming client " + request.getMethod() + " request is sending request: " + slowRequest));
             final HttpResponse<String> slowResponse = httpClient.send(slowRequest, HttpResponse.BodyHandlers.ofString());
             final int responseStatus = slowResponse.statusCode();
             if (responseStatus == 200) {
                 success = true;
             }
             final String responseBody = slowResponse.body();
-            logger.info("Got response (status = " + responseStatus + "): " + responseBody);
+            logger.info(sessionLogMessage(sessionId, "Got response (status = " + responseStatus + "): " + responseBody));
             response.setStatus(responseStatus);
             response.getWriter().write(responseBody);
         } catch (InterruptedException e) {
-            logger.log(Level.SEVERE, "Request interrupted", e);
+            logger.log(Level.SEVERE, sessionLogMessage(sessionId, "Request interrupted"), e);
             throw new ServletException(e);
         } catch (IOException exception) {
-            logger.log(Level.SEVERE, "IOException occurred", exception);
+            logger.log(Level.SEVERE, sessionLogMessage(sessionId, "IOException occurred"), exception);
             throw exception;
         } finally {
             final Instant requestEnd = Instant.now();
-            logger.info("Request " + (success ? "completed successfully" : "failed") + " after " + Duration.between(requestBegin, requestEnd).toMillis() + " ms");
+            final String endMessage = "Request " + (success ? "completed successfully" : "failed") + " after " +
+                    Duration.between(requestBegin, requestEnd).toMillis() + " ms";
+            logger.info(sessionLogMessage(sessionId, endMessage));
         }
     }
 
@@ -103,6 +105,10 @@ public class SlowPostClientServlet extends HttpServlet {
         jsonBuilder.add("waitTime", waitTime);
         jsonBuilder.add("sessionId", sessionId);
         return jsonBuilder.build().toString();
+    }
+
+    private String sessionLogMessage(String sessionId, String message) {
+        return String.format("(sessionId=%s) %s", sessionId, message);
     }
 
     private static String safeTrim(String s) {
