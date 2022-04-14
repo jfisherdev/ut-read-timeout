@@ -44,7 +44,7 @@ public class SlowPostService {
         final Instant requestedOn = Instant.now();
         logger.info(sessionLogMessage(sessionId, "Processing request"));
         final long waitTimeMillis = request.getTimeUnit().toMillis(request.getWaitTime());
-        logger.info("Waiting " + waitTimeMillis + " ms before generating message.");
+        logger.info(sessionLogMessage(sessionId, "Waiting " + waitTimeMillis + " ms before generating message."));
         try {
             Thread.sleep(waitTimeMillis);
         } catch (InterruptedException e) {

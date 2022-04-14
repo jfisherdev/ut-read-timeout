@@ -24,10 +24,13 @@ the response.
 
 This is likely the main one needed for testing.
 
-There is a second web app called messaging-webclient.war that can be used to send requests to the previously mentioned endpoint
+There is a second web app called message-webclient.war that can be used to send requests to the previously mentioned endpoint
 but either as a GET or POST request, with request parameters (query or form) that match the names shown in the JSON above. 
 I am not sure if this is necessary, but it happened to match the original application structure where I originally 
 observed this. Either the `/message-webclient/SlowPostClient` or `/message-webclient/SlowPostClient/{sessionId}` endpoint may be used.
+
+For convenience, the message-webclient.war has an index page at `/message-webclient/` that can be used to submit requests 
+to the `/SlowPostClient` endpoint.
 
 
 

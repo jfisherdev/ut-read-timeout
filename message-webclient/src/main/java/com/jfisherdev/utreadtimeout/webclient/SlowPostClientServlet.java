@@ -26,6 +26,7 @@ public class SlowPostClientServlet extends HttpServlet {
 
     private static final Logger logger = Logger.getLogger(SlowPostClientServlet.class.getName());
     private static final String GENERATE_RANDOM_PATH = "/message-server/services/slowpost/generate-random";
+    private static final String APPLICATION_JSON_TYPE = "application/json";
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -44,7 +45,7 @@ public class SlowPostClientServlet extends HttpServlet {
         final String requestJson = getRequestJson(request, sessionId);
         final HttpClient httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(30L)).build();
         final HttpRequest slowRequest = HttpRequest.newBuilder(URI.create(serviceUrl)).
-                header("Content-Type", "application/json").
+                header("Content-Type", APPLICATION_JSON_TYPE).
                 POST(HttpRequest.BodyPublishers.ofString(requestJson)).
                 build();
         final Instant requestBegin = Instant.now();
@@ -59,6 +60,7 @@ public class SlowPostClientServlet extends HttpServlet {
             final String responseBody = slowResponse.body();
             logger.info(sessionLogMessage(sessionId, "Got response (status = " + responseStatus + "): " + responseBody));
             response.setStatus(responseStatus);
+            response.setContentType(APPLICATION_JSON_TYPE);
             response.getWriter().write(responseBody);
         } catch (InterruptedException e) {
             logger.log(Level.SEVERE, sessionLogMessage(sessionId, "Request interrupted"), e);

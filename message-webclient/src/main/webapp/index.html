@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+        PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <title>Undertow Read Timeout Test Client</title>
+    <style type="text/css">
+        table {
+            border-collapse: collapse;
+        }
+
+        table, th, td {
+            border: 1px solid black;
+        }
+    </style>
+    <script type="application/javascript">
+        const servletUrl = "SlowPostClient";
+
+        const columns = [
+            {"name": "sessionId", "displayName": "Session ID"},
+            {"name": "requestedTime", "displayName": "Requested Time"},
+            {"name": "completedTime", "displayName": "Completed Time"},
+            {"name": "messageContent", "displayName": "Message Content"},
+        ]
+
+        function loadBody() {
+            var resultsTable = document.getElementById("results-table");
+            const tableHeader = resultsTable.createTHead();
+            const tableHeaderRow = tableHeader.insertRow(0);
+            const columnsLength = columns.length;
+            for (var i = 0; i < columnsLength; i++) {
+                const column = columns[i];
+                const columnCell = tableHeaderRow.insertCell(i);
+                columnCell.innerHTML = column.displayName;
+            }
+            const form = document.getElementById("submit-form");
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+                submitRequest()
+            });
+        }
+
+        function submitRequest() {
+
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (this.readyState === 4 && this.status === 200) {
+                    var result = JSON.parse(this.responseText);
+                    addResult(result);
+                } else if (this.readyState === 4 && this.status !== 200) {
+                    alert("Failure: " + xhttp.statusText)
+                }
+            }
+            const form = document.getElementById("submit-form");
+            var formData = new URLSearchParams(new FormData(form));
+            xhttp.open("POST", servletUrl, true);
+            xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            xhttp.send(formData);
+        }
+
+        function addResult(result) {
+            var resultsTable = document.getElementById("results-table")
+            const resultRow = resultsTable.insertRow(-1);
+            for (var j = 0; j < columns.length; j++) {
+                const column = columns[j];
+                const columnName = column.name;
+                const columnCell = resultRow.insertCell(j);
+                columnCell.innerHTML = formatCellValue(columnName, result);
+            }
+        }
+
+        function formatCellValue(columnName, result) {
+            const columnValue = result[columnName];
+            var formattedValue;
+            switch (columnName) {
+                case "requestedTime":
+                case "completedTime":
+                    formattedValue = new Date(columnValue).toString();
+                    break;
+                default:
+                    formattedValue = columnValue;
+                    break
+            }
+            return formattedValue;
+        }
+    </script>
+</head>
+<body onload="loadBody()">
+<div id="input-panel">
+    <form id="submit-form">
+        <label for="wait-time">Wait Time (ms)</label>
+        <input type="number" id="wait-time" name="waitTime" min="0" value="30000"/>
+        <label for="message-length">Message Length</label>
+        <input type="number" id="message-length" name="messageLength" min="1" value="16"/>
+        <button type="submit">Submit</button>
+    </form>
+</div>
+<hr/>
+<div id="content-panel">
+    <table id="results-table">
+    </table>
+</div>
+</body>
+</html>
