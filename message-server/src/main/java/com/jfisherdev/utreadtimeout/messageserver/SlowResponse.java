@@ -1,6 +1,7 @@
 package com.jfisherdev.utreadtimeout.messageserver;
 
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * @author Josh Fisher
@@ -11,6 +12,8 @@ public class SlowResponse {
     private Instant requestedTime;
     private Instant completedTime;
     private String sessionId;
+    private String clientThreadName = "";
+    private String serverThreadName = "";
 
     public SlowResponse() {
     }
@@ -47,6 +50,35 @@ public class SlowResponse {
         this.sessionId = sessionId;
     }
 
+    public String getClientThreadName() {
+        return clientThreadName;
+    }
+
+    public void setClientThreadName(String clientThreadName) {
+        this.clientThreadName = clientThreadName;
+    }
+
+    public String getServerThreadName() {
+        return serverThreadName;
+    }
+
+    public void setServerThreadName(String serverThreadName) {
+        this.serverThreadName = serverThreadName;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SlowResponse response = (SlowResponse) o;
+        return Objects.equals(messageContent, response.messageContent) && Objects.equals(requestedTime, response.requestedTime) && Objects.equals(completedTime, response.completedTime) && Objects.equals(sessionId, response.sessionId) && Objects.equals(clientThreadName, response.clientThreadName) && Objects.equals(serverThreadName, response.serverThreadName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(messageContent, requestedTime, completedTime, sessionId, clientThreadName, serverThreadName);
+    }
+
     @Override
     public String toString() {
         return "SlowResponse{" +
@@ -54,6 +86,8 @@ public class SlowResponse {
                 ", requestedTime=" + requestedTime +
                 ", completedTime=" + completedTime +
                 ", sessionId='" + sessionId + '\'' +
+                ", clientThreadName='" + clientThreadName + '\'' +
+                ", serverThreadName='" + serverThreadName + '\'' +
                 '}';
     }
 }

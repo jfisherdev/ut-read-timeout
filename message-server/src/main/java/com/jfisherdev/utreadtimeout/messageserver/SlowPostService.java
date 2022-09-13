@@ -60,7 +60,10 @@ public class SlowPostService {
         response.setRequestedTime(requestedOn);
         response.setCompletedTime(completedOn);
         response.setSessionId(sessionId);
+        response.setClientThreadName(request.getClientThreadName());
+        response.setServerThreadName(Thread.currentThread().getName());
         logger.info(sessionLogMessage(sessionId, "Request processing complete. Response data: " + response));
+        ResponseHistoryStore.getInstance().addResponse(response);
         return response;
     }
 

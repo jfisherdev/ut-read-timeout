@@ -1,5 +1,6 @@
 package com.jfisherdev.utreadtimeout.messageserver;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -12,6 +13,7 @@ public class SlowRequest {
     private long waitTime = 0;
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
     private String sessionId = "ServerGenerated-" + UUID.randomUUID();
+    private String clientThreadName = "";
 
     public SlowRequest() {
     }
@@ -49,6 +51,27 @@ public class SlowRequest {
         this.sessionId = sessionId;
     }
 
+    public String getClientThreadName() {
+        return clientThreadName;
+    }
+
+    public void setClientThreadName(String clientThreadName) {
+        this.clientThreadName = clientThreadName;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SlowRequest that = (SlowRequest) o;
+        return messageLength == that.messageLength && waitTime == that.waitTime && timeUnit == that.timeUnit && Objects.equals(sessionId, that.sessionId) && Objects.equals(clientThreadName, that.clientThreadName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(messageLength, waitTime, timeUnit, sessionId, clientThreadName);
+    }
+
     @Override
     public String toString() {
         return "SlowRequest{" +
@@ -56,6 +79,7 @@ public class SlowRequest {
                 ", waitTime=" + waitTime +
                 ", timeUnit=" + timeUnit +
                 ", sessionId='" + sessionId + '\'' +
+                ", clientThreadName='" + clientThreadName + '\'' +
                 '}';
     }
 }

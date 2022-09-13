@@ -106,6 +106,7 @@ public class SlowPostClientServlet extends HttpServlet {
         }
         jsonBuilder.add("waitTime", waitTime);
         jsonBuilder.add("sessionId", sessionId);
+        jsonBuilder.add("clientThreadName", Thread.currentThread().getName());
         return jsonBuilder.build().toString();
     }
 
