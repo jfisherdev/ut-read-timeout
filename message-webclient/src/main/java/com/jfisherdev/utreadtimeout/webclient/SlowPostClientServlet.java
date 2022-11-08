@@ -8,12 +8,22 @@ import javax.servlet.annotation.*;
 import javax.ws.rs.WebApplicationException;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.WebSocket;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,6 +36,7 @@ public class SlowPostClientServlet extends HttpServlet {
 
     private static final Logger logger = Logger.getLogger(SlowPostClientServlet.class.getName());
     private static final String GENERATE_RANDOM_PATH = "/message-server/services/slowpost/generate-random";
+    private static final String WEBSOCKET_ENDPOINT = "/message-server/ws/slowmessage";
     private static final String APPLICATION_JSON_TYPE = "application/json";
 
     @Override
@@ -40,35 +51,93 @@ public class SlowPostClientServlet extends HttpServlet {
 
     void doGetAndPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         final String sessionId = getSessionId(request);
-        final String serviceUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort()
-                + GENERATE_RANDOM_PATH + "/" + sessionId;
         final String requestJson = getRequestJson(request, sessionId);
-        final HttpClient httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(30L)).build();
-        final HttpRequest slowRequest = HttpRequest.newBuilder(URI.create(serviceUrl)).
-                header("Content-Type", APPLICATION_JSON_TYPE).
-                POST(HttpRequest.BodyPublishers.ofString(requestJson)).
-                build();
+        final boolean useWebSocket = useWebSocket(request);
+        final boolean maybeFail = new Random().nextBoolean();
+
+        final String scheme = useWebSocket ? request.getScheme().replace("http", "ws") : request.getScheme();
+        final String basePath = useWebSocket ? WEBSOCKET_ENDPOINT : GENERATE_RANDOM_PATH;
+        final String queryStringBuilder = "fail=" + maybeFail +
+                "&" + "userNm=" + URLEncoder.encode(System.getProperty("user.name"), StandardCharsets.UTF_8);
+        final String serviceUrl = scheme + "://" + request.getServerName() + ":" + request.getServerPort()
+                + basePath + "/" + sessionId + "?" + queryStringBuilder;
+        final Duration connectTimeout = Duration.ofSeconds(30L);
+        final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
+
         final Instant requestBegin = Instant.now();
         boolean success = false;
+        int responseStatus = 200;
+        final StringBuilder responseContentBuilder = new StringBuilder();
+        final CountDownLatch countDownLatch = new CountDownLatch(1);
+        final ScheduledExecutorService service = Executors.newScheduledThreadPool(1);
         try {
-            logger.info(sessionLogMessage(sessionId, "Incoming client " + request.getMethod() + " request is sending request: " + slowRequest));
-            final HttpResponse<String> slowResponse = httpClient.send(slowRequest, HttpResponse.BodyHandlers.ofString());
-            final int responseStatus = slowResponse.statusCode();
-            if (responseStatus == 200) {
+            if (useWebSocket) {
+                final WebSocket webSocket = httpClient.newWebSocketBuilder().connectTimeout(httpClient.connectTimeout().orElse(connectTimeout)).
+                        buildAsync(URI.create(serviceUrl), new WebSocket.Listener() {
+                            @Override
+                            public void onOpen(WebSocket webSocket) {
+                                logger.info("Opened WebSocket connection " + webSocket);
+                                WebSocket.Listener.super.onOpen(webSocket);
+                            }
+
+                            @Override
+                            public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                                responseContentBuilder.append(data);
+                                if (last) {
+                                    countDownLatch.countDown();
+                                }
+                                return WebSocket.Listener.super.onText(webSocket, data, last);
+                            }
+
+                            @Override
+                            public CompletionStage<?> onPing(WebSocket webSocket, ByteBuffer message) {
+                                logger.info("Got Ping message: " + message.toString());
+                                return WebSocket.Listener.super.onPing(webSocket, message);
+                            }
+
+                            @Override
+                            public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
+                                logger.info("Got Pong message: " + message.toString());
+                                return WebSocket.Listener.super.onPong(webSocket, message);
+                            }
+                        }).get();
+                webSocket.sendText(requestJson, true);
+                service.scheduleAtFixedRate(() -> {
+                    final ByteBuffer pingMessage = ByteBuffer.wrap(sessionId.getBytes(StandardCharsets.UTF_8));
+                    logger.info("Sending ping message: " + pingMessage);
+                    webSocket.sendPing(pingMessage);
+                }, 5L, 5L, TimeUnit.SECONDS);
+                countDownLatch.await();
                 success = true;
+            } else {
+                final HttpRequest slowRequest = HttpRequest.newBuilder(URI.create(serviceUrl)).
+                        header("Content-Type", APPLICATION_JSON_TYPE).
+                        POST(HttpRequest.BodyPublishers.ofString(requestJson)).
+                        build();
+                logger.info(sessionLogMessage(sessionId, "Incoming client " + request.getMethod() + " request is sending request: " + slowRequest));
+                final HttpResponse<String> slowResponse = httpClient.send(slowRequest, HttpResponse.BodyHandlers.ofString());
+                responseStatus = slowResponse.statusCode();
+                if (responseStatus == 200) {
+                    success = true;
+                }
+                final String responseBody = slowResponse.body();
+                responseContentBuilder.append(responseBody);
+                logger.info(sessionLogMessage(sessionId, "Got response (status = " + responseStatus + "): " + responseBody));
             }
-            final String responseBody = slowResponse.body();
-            logger.info(sessionLogMessage(sessionId, "Got response (status = " + responseStatus + "): " + responseBody));
             response.setStatus(responseStatus);
             response.setContentType(APPLICATION_JSON_TYPE);
-            response.getWriter().write(responseBody);
+            response.getWriter().write(responseContentBuilder.toString());
         } catch (InterruptedException e) {
             logger.log(Level.SEVERE, sessionLogMessage(sessionId, "Request interrupted"), e);
             throw new ServletException(e);
         } catch (IOException exception) {
             logger.log(Level.SEVERE, sessionLogMessage(sessionId, "IOException occurred"), exception);
             throw exception;
+        } catch (ExecutionException e) {
+            logger.log(Level.SEVERE, sessionLogMessage(sessionId, "ExecutionException occurred"));
+            throw new ServletException(e);
         } finally {
+            service.shutdownNow();
             final Instant requestEnd = Instant.now();
             final String endMessage = "Request " + (success ? "completed successfully" : "failed") + " after " +
                     Duration.between(requestBegin, requestEnd).toMillis() + " ms";
@@ -108,6 +177,10 @@ public class SlowPostClientServlet extends HttpServlet {
         jsonBuilder.add("sessionId", sessionId);
         jsonBuilder.add("clientThreadName", Thread.currentThread().getName());
         return jsonBuilder.build().toString();
+    }
+
+    private boolean useWebSocket(HttpServletRequest req) {
+        return Boolean.parseBoolean(req.getParameter("useWebsocket"));
     }
 
     private String sessionLogMessage(String sessionId, String message) {
