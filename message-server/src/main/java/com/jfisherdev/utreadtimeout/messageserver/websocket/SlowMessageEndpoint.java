@@ -4,8 +4,11 @@ import com.jfisherdev.utreadtimeout.messageserver.ResponseHistoryStore;
 import com.jfisherdev.utreadtimeout.messageserver.SlowRequest;
 import com.jfisherdev.utreadtimeout.messageserver.SlowResponse;
 
+import javax.websocket.CloseReason;
 import javax.websocket.EncodeException;
 import javax.websocket.EndpointConfig;
+import javax.websocket.OnClose;
+import javax.websocket.OnError;
 import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
 import javax.websocket.PongMessage;
@@ -15,9 +18,9 @@ import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
+import java.util.Collections;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -68,6 +71,10 @@ public class SlowMessageEndpoint {
         }
         final int messageLength = request.getMessageLength();
         logger.info(sessionLogMessage(sessionId, "Ready to generate random " + messageLength + " character message"));
+        if (shouldFail(session)) {
+            logger.severe(sessionLogMessage(sessionId, "Intentionally failing onMessage"));
+            throw new RuntimeException("Intentionally failing onMessage");
+        }
         final String generatedMessage = generateRandomMessage(messageLength);
         final Instant completedOn = Instant.now();
         final SlowResponse response = new SlowResponse();
@@ -80,7 +87,7 @@ public class SlowMessageEndpoint {
         logger.info(sessionLogMessage(sessionId, "Request processing complete. Response data: " + response));
         ResponseHistoryStore.getInstance().addResponse(response);
 
-        session.getBasicRemote().sendObject(response);
+        session.getAsyncRemote().sendObject(response);
     }
 
     @OnMessage
@@ -93,6 +100,17 @@ public class SlowMessageEndpoint {
         logger.info("Pong message: " + pongMessage.getApplicationData().toString());
     }
 
+    @OnClose
+    public void onClose(Session session, CloseReason closeReason) {
+        logger.info(sessionLogMessage(ourSessionId, "Closing reason: " + closeReason));
+    }
+
+    @OnError
+    public void onError(Session session, Throwable error) throws IOException {
+        logger.log(Level.SEVERE, sessionLogMessage(ourSessionId, "Error occurred in WebSocket, attempting close..."), error);
+        session.close();
+    }
+
     String generateRandomMessage(int length) {
         StringBuilder stringBuilder = new StringBuilder();
         for (int i = 0; i < length; i++) {
@@ -100,6 +118,12 @@ public class SlowMessageEndpoint {
             stringBuilder.append(nextChar);
         }
         return stringBuilder.toString();
+    }
+
+    private boolean shouldFail(Session session) {
+        final Optional<String> failParamValue = session.getRequestParameterMap().getOrDefault("fail", Collections.emptyList()).
+                stream().findFirst();
+        return failParamValue.isPresent() && Boolean.parseBoolean(failParamValue.get());
     }
 
     private String sessionLogMessage(String sessionId, String message) {

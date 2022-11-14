@@ -22,8 +22,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -53,7 +56,7 @@ public class SlowPostClientServlet extends HttpServlet {
         final String sessionId = getSessionId(request);
         final String requestJson = getRequestJson(request, sessionId);
         final boolean useWebSocket = useWebSocket(request);
-        final boolean maybeFail = new Random().nextBoolean();
+        final boolean maybeFail = maybeFail(request);
 
         final String scheme = useWebSocket ? request.getScheme().replace("http", "ws") : request.getScheme();
         final String basePath = useWebSocket ? WEBSOCKET_ENDPOINT : GENERATE_RANDOM_PATH;
@@ -61,17 +64,19 @@ public class SlowPostClientServlet extends HttpServlet {
                 "&" + "userNm=" + URLEncoder.encode(System.getProperty("user.name"), StandardCharsets.UTF_8);
         final String serviceUrl = scheme + "://" + request.getServerName() + ":" + request.getServerPort()
                 + basePath + "/" + sessionId + "?" + queryStringBuilder;
+        final ExecutorService httpClientExecutor = Executors.newSingleThreadExecutor();
         final Duration connectTimeout = Duration.ofSeconds(30L);
-        final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
+        final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(connectTimeout).executor(httpClientExecutor).build();
 
         final Instant requestBegin = Instant.now();
         boolean success = false;
         int responseStatus = 200;
         final StringBuilder responseContentBuilder = new StringBuilder();
         final CountDownLatch countDownLatch = new CountDownLatch(1);
-        final ScheduledExecutorService service = Executors.newScheduledThreadPool(1);
+        final ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
         try {
             if (useWebSocket) {
+                logger.info(sessionLogMessage(sessionId, "Incoming client " + request.getMethod() + " request is sending WebSocket request (endpoint: " + serviceUrl + "): " + requestJson));
                 final WebSocket webSocket = httpClient.newWebSocketBuilder().connectTimeout(httpClient.connectTimeout().orElse(connectTimeout)).
                         buildAsync(URI.create(serviceUrl), new WebSocket.Listener() {
                             @Override
@@ -100,14 +105,30 @@ public class SlowPostClientServlet extends HttpServlet {
                                 logger.info("Got Pong message: " + message.toString());
                                 return WebSocket.Listener.super.onPong(webSocket, message);
                             }
+
+                            @Override
+                            public void onError(WebSocket webSocket, Throwable error) {
+                                logger.log(Level.SEVERE, "Received error", error);
+                                countDownLatch.countDown();
+                                WebSocket.Listener.super.onError(webSocket, error);
+                            }
+
+                            @Override
+                            public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+                                logger.info("Received close: {status=" + statusCode + ", reason=" + reason + "}");
+                                countDownLatch.countDown();
+                                return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
+                            }
                         }).get();
                 webSocket.sendText(requestJson, true);
-                service.scheduleAtFixedRate(() -> {
+                final ScheduledFuture<?> scheduledPing = service.scheduleWithFixedDelay(() -> {
                     final ByteBuffer pingMessage = ByteBuffer.wrap(sessionId.getBytes(StandardCharsets.UTF_8));
                     logger.info("Sending ping message: " + pingMessage);
                     webSocket.sendPing(pingMessage);
                 }, 5L, 5L, TimeUnit.SECONDS);
                 countDownLatch.await();
+                webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Message operations complete");
+                scheduledPing.cancel(true);
                 success = true;
             } else {
                 final HttpRequest slowRequest = HttpRequest.newBuilder(URI.create(serviceUrl)).
@@ -115,7 +136,8 @@ public class SlowPostClientServlet extends HttpServlet {
                         POST(HttpRequest.BodyPublishers.ofString(requestJson)).
                         build();
                 logger.info(sessionLogMessage(sessionId, "Incoming client " + request.getMethod() + " request is sending request: " + slowRequest));
-                final HttpResponse<String> slowResponse = httpClient.send(slowRequest, HttpResponse.BodyHandlers.ofString());
+                final HttpResponse<String> slowResponse = httpClient.sendAsync(slowRequest, HttpResponse.BodyHandlers.ofString()).
+                        join();
                 responseStatus = slowResponse.statusCode();
                 if (responseStatus == 200) {
                     success = true;
@@ -141,6 +163,7 @@ public class SlowPostClientServlet extends HttpServlet {
             final Instant requestEnd = Instant.now();
             final String endMessage = "Request " + (success ? "completed successfully" : "failed") + " after " +
                     Duration.between(requestBegin, requestEnd).toMillis() + " ms";
+            httpClientExecutor.shutdown();
             logger.info(sessionLogMessage(sessionId, endMessage));
         }
     }
@@ -181,6 +204,10 @@ public class SlowPostClientServlet extends HttpServlet {
 
     private boolean useWebSocket(HttpServletRequest req) {
         return Boolean.parseBoolean(req.getParameter("useWebsocket"));
+    }
+
+    private boolean maybeFail(HttpServletRequest req) {
+        return Boolean.parseBoolean(req.getParameter("maybeFail")) && new Random().nextBoolean();
     }
 
     private String sessionLogMessage(String sessionId, String message) {
