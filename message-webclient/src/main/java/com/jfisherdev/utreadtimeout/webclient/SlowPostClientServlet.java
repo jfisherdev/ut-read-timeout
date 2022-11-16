@@ -87,6 +87,7 @@ public class SlowPostClientServlet extends HttpServlet {
 
                             @Override
                             public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                                logger.info("Received text: " + data);
                                 responseContentBuilder.append(data);
                                 if (last) {
                                     countDownLatch.countDown();

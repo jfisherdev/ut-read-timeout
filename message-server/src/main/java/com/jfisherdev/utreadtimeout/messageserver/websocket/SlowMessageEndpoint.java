@@ -108,6 +108,7 @@ public class SlowMessageEndpoint {
     @OnError
     public void onError(Session session, Throwable error) throws IOException {
         logger.log(Level.SEVERE, sessionLogMessage(ourSessionId, "Error occurred in WebSocket, attempting close..."), error);
+        session.getAsyncRemote().sendText(error.getMessage());
         session.close();
     }
 
