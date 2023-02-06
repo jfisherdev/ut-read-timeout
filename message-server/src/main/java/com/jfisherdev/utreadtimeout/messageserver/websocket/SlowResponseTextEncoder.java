@@ -1,12 +1,11 @@
 package com.jfisherdev.utreadtimeout.messageserver.websocket;
 
 import com.jfisherdev.utreadtimeout.messageserver.SlowResponse;
-
-import javax.json.Json;
-import javax.json.JsonObjectBuilder;
-import javax.websocket.EncodeException;
-import javax.websocket.Encoder;
-import javax.websocket.EndpointConfig;
+import jakarta.json.Json;
+import jakarta.json.JsonObjectBuilder;
+import jakarta.websocket.EncodeException;
+import jakarta.websocket.Encoder;
+import jakarta.websocket.EndpointConfig;
 
 /**
  * @author Josh Fisher

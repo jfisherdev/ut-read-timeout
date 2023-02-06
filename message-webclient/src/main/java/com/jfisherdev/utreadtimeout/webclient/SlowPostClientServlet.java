@@ -1,11 +1,13 @@
 package com.jfisherdev.utreadtimeout.webclient;
 
-import javax.json.Json;
-import javax.json.JsonObjectBuilder;
-import javax.servlet.*;
-import javax.servlet.http.*;
-import javax.servlet.annotation.*;
-import javax.ws.rs.WebApplicationException;
+import jakarta.json.Json;
+import jakarta.json.JsonObjectBuilder;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -22,7 +24,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;

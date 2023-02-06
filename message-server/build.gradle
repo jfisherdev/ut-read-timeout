@@ -10,7 +10,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly group: 'javax', name: 'javaee-api', version: '8.0'
+    compileOnly group: 'jakarta.platform', name: 'jakarta.jakartaee-api', version: '10.0.0'
     testImplementation 'junit:junit:4.11'
 }
 
